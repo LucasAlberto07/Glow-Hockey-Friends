@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>Glow Hockey Online</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; height: 100%;
+    background: radial-gradient(circle at 50% 20%, #1b2140 0%, #05060f 70%);
+    font-family: 'Segoe UI', Arial, sans-serif;
+    color: #e8eaf6;
+    overscroll-behavior: none;
+    touch-action: none;
+  }
+  #app {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100%;
+    padding: 12px;
+  }
+  h1 {
+    margin: 0 0 18px 0;
+    font-size: clamp(22px, 5vw, 34px);
+    letter-spacing: 2px;
+    text-shadow: 0 0 12px #4fc3f7, 0 0 28px #4fc3f7;
+  }
+  #connectPanel {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 16px;
+    padding: 24px;
+    width: min(92vw, 380px);
+    text-align: center;
+    backdrop-filter: blur(6px);
+  }
+  #connectPanel label {
+    display: block;
+    font-size: 13px;
+    color: #aab2d5;
+    margin-bottom: 6px;
+    text-align: left;
+  }
+  #connectPanel input {
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px solid rgba(255,255,255,0.2);
+    background: rgba(0,0,0,0.3);
+    color: #fff;
+    font-size: 15px;
+    margin-bottom: 14px;
+  }
+  #connectPanel button, #playAgainBtn {
+    width: 100%;
+    padding: 12px;
+    border: none;
+    border-radius: 8px;
+    background: linear-gradient(135deg, #4fc3f7, #7c4dff);
+    color: #fff;
+    font-size: 16px;
+    font-weight: bold;
+    letter-spacing: 1px;
+    cursor: pointer;
+    box-shadow: 0 0 18px rgba(79,195,247,0.5);
+  }
+  #connectPanel button:active, #playAgainBtn:active { transform: scale(0.98); }
+  #status {
+    margin-top: 12px;
+    font-size: 13px;
+    color: #9aa4d0;
+    min-height: 18px;
+  }
+  #gameWrap {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+  }
+  #hud {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: min(94vw, 820px);
+    margin-bottom: 8px;
+    font-size: 14px;
+    color: #9aa4d0;
+  }
+  #score {
+    font-size: clamp(28px, 6vw, 44px);
+    font-weight: bold;
+    text-shadow: 0 0 10px #fff;
+    letter-spacing: 4px;
+  }
+  canvas {
+    background: #08101f;
+    border-radius: 10px;
+    border: 3px solid #cfd4ea;
+    max-width: 94vw;
+    max-height: 70vh;
+    touch-action: none;
+    box-shadow: 0 0 40px rgba(79,195,247,0.15);
+  }
+  #overlayMsg {
+    position: absolute;
+    color: #fff;
+    font-size: 20px;
+    text-shadow: 0 0 10px #000;
+    pointer-events: none;
+  }
+  #canvasHolder { position: relative; display: flex; justify-content: center; }
+  .hint { font-size: 12px; color: #7a84ad; margin-top: 10px; text-align: center; }
+</style>
+</head>
+<body>
+<div id="app">
+  <h1>GLOW HOCKEY</h1>
+
+  <div id="connectPanel">
+    <label for="serverUrl">Endereço do servidor (WebSocket)</label>
+    <input id="serverUrl" type="text" placeholder="ws://192.168.0.10:8765/ws" value="" />
+    <button id="connectBtn">Entrar na partida</button>
+    <div id="status"></div>
+    <div class="hint">Peça o endereço para quem está rodando o server.py</div>
+  </div>
+
+  <div id="gameWrap">
+    <div id="hud">
+      <span id="youAre"></span>
+      <span id="score">0 - 0</span>
+      <span id="pingInfo"></span>
+    </div>
+    <div id="canvasHolder">
+      <canvas id="canvas" width="800" height="500"></canvas>
+      <div id="overlayMsg"></div>
+    </div>
+    <div class="hint">Arraste o dedo (ou mova o mouse) para controlar seu rebatedor</div>
+  </div>
+</div>
+
+<script>
+const connectPanel = document.getElementById('connectPanel');
+const gameWrap = document.getElementById('gameWrap');
+const statusEl = document.getElementById('status');
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const scoreEl = document.getElementById('score');
+const youAreEl = document.getElementById('youAre');
+const overlayMsg = document.getElementById('overlayMsg');
+
+let ws = null;
+let playerId = null;
+let WIDTH = 800, HEIGHT = 500;
+const PADDLE_RADIUS = 25;
+const PUCK_RADIUS = 15;
+const GOAL_HALF = 80;
+
+let gameState = { paddles: {}, puck: [400,250], score: {"1":0,"2":0} };
+let myX = 100, myY = 250;
+let connected = false;
+
+// Preenche automaticamente com o endereço do próprio servidor que serviu esta página
+// (funciona tanto local quanto em produção, com wss:// automático em HTTPS).
+(function autofillServerUrl() {
+  const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const guessed = `${proto}//${window.location.host}/ws`;
+  const input = document.getElementById('serverUrl');
+  if (window.location.protocol.startsWith('http')) {
+    input.value = guessed;
+  }
+})();
+
+document.getElementById('connectBtn').addEventListener('click', connect);
+
+function connect() {
+  const url = document.getElementById('serverUrl').value.trim();
+  if (!url) return;
+  statusEl.textContent = 'Conectando...';
+  try {
+    ws = new WebSocket(url);
+  } catch (e) {
+    statusEl.textContent = 'Endereço inválido.';
+    return;
+  }
+
+  ws.onopen = () => { statusEl.textContent = 'Conectado, aguardando confirmação...'; };
+
+  ws.onmessage = (event) => {
+    const msg = JSON.parse(event.data);
+    if (msg.type === 'full') {
+      statusEl.textContent = 'Sala cheia (2 jogadores já conectados). Tente mais tarde.';
+      ws.close();
+      return;
+    }
+    if (msg.type === 'welcome') {
+      playerId = msg.player;
+      WIDTH = msg.width;
+      HEIGHT = msg.height;
+      canvas.width = WIDTH;
+      canvas.height = HEIGHT;
+      myX = playerId === 1 ? 100 : WIDTH - 100;
+      myY = HEIGHT / 2;
+      connected = true;
+      connectPanel.style.display = 'none';
+      gameWrap.style.display = 'flex';
+      youAreEl.textContent = `Você: Jogador ${playerId}`;
+      requestAnimationFrame(loop);
+    }
+    if (msg.type === 'state') {
+      gameState.paddles = msg.paddles;
+      gameState.puck = msg.puck;
+      gameState.score = msg.score;
+    }
+  };
+
+  ws.onerror = () => { statusEl.textContent = 'Erro ao conectar. Confira o endereço e a porta.'; };
+  ws.onclose = () => {
+    if (connected) {
+      overlayMsg.textContent = 'Conexão encerrada.';
+      overlayMsg.style.left = (canvas.offsetWidth/2 - 80) + 'px';
+      overlayMsg.style.top = (canvas.offsetHeight/2) + 'px';
+    } else {
+      statusEl.textContent = 'Não foi possível conectar ao servidor.';
+    }
+    connected = false;
+  };
+}
+
+function clampPos(x, y) {
+  y = Math.max(PADDLE_RADIUS, Math.min(HEIGHT - PADDLE_RADIUS, y));
+  if (playerId === 1) {
+    x = Math.max(PADDLE_RADIUS, Math.min(WIDTH/2 - PADDLE_RADIUS, x));
+  } else {
+    x = Math.max(WIDTH/2 + PADDLE_RADIUS, Math.min(WIDTH - PADDLE_RADIUS, x));
+  }
+  return [x, y];
+}
+
+function canvasCoordsFromEvent(clientX, clientY) {
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = canvas.width / rect.width;
+  const scaleY = canvas.height / rect.height;
+  return [(clientX - rect.left) * scaleX, (clientY - rect.top) * scaleY];
+}
+
+canvas.addEventListener('mousemove', (e) => {
+  if (!connected) return;
+  const [x, y] = canvasCoordsFromEvent(e.clientX, e.clientY);
+  [myX, myY] = clampPos(x, y);
+});
+
+canvas.addEventListener('touchmove', (e) => {
+  if (!connected) return;
+  e.preventDefault();
+  const touch = e.touches[0];
+  const [x, y] = canvasCoordsFromEvent(touch.clientX, touch.clientY);
+  [myX, myY] = clampPos(x, y);
+}, { passive: false });
+
+canvas.addEventListener('touchstart', (e) => {
+  if (!connected) return;
+  e.preventDefault();
+  const touch = e.touches[0];
+  const [x, y] = canvasCoordsFromEvent(touch.clientX, touch.clientY);
+  [myX, myY] = clampPos(x, y);
+}, { passive: false });
+
+function sendMove() {
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({ type: 'move', x: myX, y: myY }));
+  }
+}
+
+function glowCircle(x, y, radius, color) {
+  ctx.save();
+  ctx.shadowColor = color;
+  ctx.shadowBlur = radius * 1.8;
+  ctx.beginPath();
+  ctx.arc(x, y, radius, 0, Math.PI * 2);
+  ctx.fillStyle = color;
+  ctx.fill();
+  ctx.restore();
+
+  ctx.beginPath();
+  ctx.arc(x - radius*0.25, y - radius*0.25, radius*0.32, 0, Math.PI*2);
+  ctx.fillStyle = 'rgba(255,255,255,0.55)';
+  ctx.fill();
+}
+
+function drawTable() {
+  ctx.fillStyle = '#08101f';
+  ctx.fillRect(0, 0, WIDTH, HEIGHT);
+
+  ctx.strokeStyle = '#3b4468';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(WIDTH/2, 0);
+  ctx.lineTo(WIDTH/2, HEIGHT);
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.arc(WIDTH/2, HEIGHT/2, 70, 0, Math.PI*2);
+  ctx.stroke();
+
+  ctx.strokeStyle = '#cfd4ea';
+  ctx.lineWidth = 6;
+  ctx.strokeRect(3, 3, WIDTH-6, HEIGHT-6);
+
+  ctx.strokeStyle = '#ffd200';
+  ctx.lineWidth = 6;
+  ctx.beginPath();
+  ctx.moveTo(0, HEIGHT/2 - GOAL_HALF);
+  ctx.lineTo(0, HEIGHT/2 + GOAL_HALF);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(WIDTH, HEIGHT/2 - GOAL_HALF);
+  ctx.lineTo(WIDTH, HEIGHT/2 + GOAL_HALF);
+  ctx.stroke();
+}
+
+function loop() {
+  if (!connected) return;
+  sendMove();
+
+  drawTable();
+
+  const myColor = playerId === 1 ? '#4fc3f7' : '#ff6482';
+  const oppColor = playerId === 1 ? '#ff6482' : '#4fc3f7';
+  const oppId = playerId === 1 ? 2 : 1;
+  const oppPos = gameState.paddles[String(oppId)];
+
+  if (oppPos) {
+    glowCircle(oppPos[0], oppPos[1], PADDLE_RADIUS, oppColor);
+  } else {
+    ctx.fillStyle = 'rgba(200,200,220,0.85)';
+    ctx.font = 'bold 22px Segoe UI';
+    ctx.textAlign = 'center';
+    ctx.fillText('Aguardando oponente...', WIDTH/2, HEIGHT/2 + 100);
+  }
+
+  glowCircle(myX, myY, PADDLE_RADIUS, myColor);
+
+  const puck = gameState.puck || [WIDTH/2, HEIGHT/2];
+  glowCircle(puck[0], puck[1], PUCK_RADIUS, '#ffffff');
+
+  const s1 = gameState.score['1'] ?? 0;
+  const s2 = gameState.score['2'] ?? 0;
+  scoreEl.textContent = `${s1} - ${s2}`;
+
+  requestAnimationFrame(loop);
+}
+</script>
+</body>
+</html>
