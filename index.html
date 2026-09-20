@@ -7,7 +7,10 @@
 <style>
   * { box-sizing: border-box; }
   html, body {
-    margin: 0; padding: 0; height: 100%;
+    margin: 0; padding: 0;
+    height: 100vh;
+    height: 100dvh; /* viewport dinâmico: já descontando a barra do navegador no mobile */
+    overflow: hidden;
     background: #000000;
     font-family: 'Segoe UI', Arial, sans-serif;
     color: #e8eaf6;
@@ -18,15 +21,18 @@
     display: flex;
     flex-direction: column;
     align-items: center;
+    height: 100%;
+    padding: 8px;
+  }
+  #app.menu-mode {
     justify-content: center;
-    min-height: 100%;
-    padding: 10px;
   }
   h1 {
     margin: 0 0 16px 0;
     font-size: clamp(20px, 5vw, 30px);
     letter-spacing: 2px;
     text-shadow: 0 0 12px #4fc3f7, 0 0 28px #4fc3f7;
+    flex-shrink: 0;
   }
   .panel {
     background: rgba(255,255,255,0.05);
@@ -97,6 +103,8 @@
     flex-direction: column;
     align-items: center;
     width: 100%;
+    height: 100%;
+    min-height: 0;
   }
   #hud {
     display: flex;
@@ -106,6 +114,7 @@
     margin-bottom: 6px;
     font-size: 13px;
     color: #9aa4d0;
+    flex-shrink: 0;
   }
   #hud a { color: #7a84ad; cursor: pointer; text-decoration: underline; }
   #score {
@@ -117,8 +126,8 @@
   canvas {
     background: #000;
     border-radius: 6px;
-    max-width: 94vw;
-    max-height: 82vh;
+    max-width: 100%;
+    max-height: 100%;
     touch-action: none;
   }
   #overlayMsg {
@@ -130,17 +139,31 @@
     text-align: center;
     width: 100%;
   }
-  #canvasHolder { position: relative; display: flex; justify-content: center; }
-  .hint { font-size: 12px; color: #7a84ad; margin-top: 8px; text-align: center; }
+  #canvasHolder {
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    flex: 1;
+    min-height: 0;
+  }
+  .hint {
+    font-size: 12px;
+    color: #7a84ad;
+    margin-top: 6px;
+    text-align: center;
+    flex-shrink: 0;
+  }
 </style>
 </head>
 <body>
-<div id="app">
+<div id="app" class="menu-mode">
   <h1>GLOW HOCKEY</h1>
 
   <div id="mainMenu" class="panel">
     <button id="btnOnline">🌐 Jogar Online</button>
-    <button id="btnAI" class="secondary">🤖 Jogar contra o Pelicano fantasma</button>
+    <button id="btnAI" class="secondary">🤖 Jogar contra o Computador</button>
     <div class="hint">Online precisa de um servidor rodando. Contra o computador funciona direto, sem servidor.</div>
   </div>
 
@@ -205,10 +228,20 @@ let connected = false;
 let sparkles = [];
 
 // ---------- Navegação entre telas ----------
+const appEl = document.getElementById('app');
+const titleEl = document.querySelector('h1');
+
 function showOnly(el) {
   [mainMenu, connectPanel, difficultyPanel, gameWrap].forEach(p => {
     p.style.display = (p === el) ? (el === gameWrap ? 'flex' : 'block') : 'none';
   });
+  if (el === gameWrap) {
+    titleEl.style.display = 'none';
+    appEl.classList.remove('menu-mode');
+  } else {
+    titleEl.style.display = '';
+    appEl.classList.add('menu-mode');
+  }
 }
 
 document.getElementById('btnOnline').addEventListener('click', () => {
