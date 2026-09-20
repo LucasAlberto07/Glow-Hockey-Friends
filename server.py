@@ -29,19 +29,21 @@ from aiohttp import web, WSMsgType
 BASE_DIR = Path(__file__).resolve().parent
 INDEX_PATH = BASE_DIR / 'index.html'
 
-WIDTH, HEIGHT = 800, 500
-PADDLE_RADIUS = 25
-PUCK_RADIUS = 15
-GOAL_HALF = 80
+# Mesa em pé (retrato), como no Glow Hockey original: gols em cima e embaixo.
+WIDTH, HEIGHT = 480, 900
+PADDLE_RADIUS = 34
+PUCK_RADIUS = 26
+GOAL_HALF = 95
 FRICTION = 0.997
-MAX_SPEED = 20
+MAX_SPEED = 22
 TICK_RATE = 60
 
 
 class GameState:
     def __init__(self):
-        self.paddles = {1: [100.0, HEIGHT / 2], 2: [WIDTH - 100.0, HEIGHT / 2]}
-        self.prev_paddles = {1: [100.0, HEIGHT / 2], 2: [WIDTH - 100.0, HEIGHT / 2]}
+        # Jogador 1 fica embaixo, Jogador 2 fica em cima (mesa em pé).
+        self.paddles = {1: [WIDTH / 2, HEIGHT - 120.0], 2: [WIDTH / 2, 120.0]}
+        self.prev_paddles = {1: [WIDTH / 2, HEIGHT - 120.0], 2: [WIDTH / 2, 120.0]}
         self.puck = [WIDTH / 2, HEIGHT / 2]
         self.puck_vel = [0.0, 0.0]
         self.score = {1: 0, 2: 0}
@@ -52,17 +54,17 @@ class GameState:
         self.puck = [WIDTH / 2, HEIGHT / 2]
         speed = 5.0
         angle = math.radians(25)
-        sign_y = 1 if int(time.time() * 1000) % 2 == 0 else -1
-        self.puck_vel = [speed * math.cos(angle) * direction,
-                          speed * math.sin(angle) * sign_y]
+        sign_x = 1 if int(time.time() * 1000) % 2 == 0 else -1
+        self.puck_vel = [speed * math.sin(angle) * sign_x,
+                          speed * math.cos(angle) * direction]
 
     def update_paddle(self, player, x, y):
         r = PADDLE_RADIUS
-        y = max(r, min(HEIGHT - r, y))
+        x = max(r, min(WIDTH - r, x))
         if player == 1:
-            x = max(r, min(WIDTH / 2 - r, x))
+            y = max(HEIGHT / 2 + r, min(HEIGHT - r, y))
         else:
-            x = max(WIDTH / 2 + r, min(WIDTH - r, x))
+            y = max(r, min(HEIGHT / 2 - r, y))
         self.prev_paddles[player] = self.paddles[player][:]
         self.paddles[player] = [x, y]
 
@@ -76,26 +78,28 @@ class GameState:
         self.puck_vel[0] *= FRICTION
         self.puck_vel[1] *= FRICTION
 
-        if self.puck[1] - PUCK_RADIUS < 0:
-            self.puck[1] = PUCK_RADIUS
-            self.puck_vel[1] *= -1
-        elif self.puck[1] + PUCK_RADIUS > HEIGHT:
-            self.puck[1] = HEIGHT - PUCK_RADIUS
-            self.puck_vel[1] *= -1
-
-        scored = None
+        # paredes laterais (esquerda/direita)
         if self.puck[0] - PUCK_RADIUS < 0:
-            if abs(self.puck[1] - HEIGHT / 2) < GOAL_HALF:
-                scored = 2
-            else:
-                self.puck[0] = PUCK_RADIUS
-                self.puck_vel[0] *= -1
+            self.puck[0] = PUCK_RADIUS
+            self.puck_vel[0] *= -1
         elif self.puck[0] + PUCK_RADIUS > WIDTH:
-            if abs(self.puck[1] - HEIGHT / 2) < GOAL_HALF:
+            self.puck[0] = WIDTH - PUCK_RADIUS
+            self.puck_vel[0] *= -1
+
+        # gols em cima (jogador 2) e embaixo (jogador 1)
+        scored = None
+        if self.puck[1] - PUCK_RADIUS < 0:
+            if abs(self.puck[0] - WIDTH / 2) < GOAL_HALF:
                 scored = 1
             else:
-                self.puck[0] = WIDTH - PUCK_RADIUS
-                self.puck_vel[0] *= -1
+                self.puck[1] = PUCK_RADIUS
+                self.puck_vel[1] *= -1
+        elif self.puck[1] + PUCK_RADIUS > HEIGHT:
+            if abs(self.puck[0] - WIDTH / 2) < GOAL_HALF:
+                scored = 2
+            else:
+                self.puck[1] = HEIGHT - PUCK_RADIUS
+                self.puck_vel[1] *= -1
 
         if scored:
             self.score[scored] += 1

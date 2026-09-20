@@ -8,7 +8,7 @@
   * { box-sizing: border-box; }
   html, body {
     margin: 0; padding: 0; height: 100%;
-    background: radial-gradient(circle at 50% 20%, #1b2140 0%, #05060f 70%);
+    background: #000000;
     font-family: 'Segoe UI', Arial, sans-serif;
     color: #e8eaf6;
     overscroll-behavior: none;
@@ -20,15 +20,15 @@
     align-items: center;
     justify-content: center;
     min-height: 100%;
-    padding: 12px;
+    padding: 10px;
   }
   h1 {
-    margin: 0 0 18px 0;
-    font-size: clamp(22px, 5vw, 34px);
+    margin: 0 0 16px 0;
+    font-size: clamp(20px, 5vw, 30px);
     letter-spacing: 2px;
     text-shadow: 0 0 12px #4fc3f7, 0 0 28px #4fc3f7;
   }
-  #connectPanel {
+  .panel {
     background: rgba(255,255,255,0.05);
     border: 1px solid rgba(255,255,255,0.12);
     border-radius: 16px;
@@ -37,14 +37,14 @@
     text-align: center;
     backdrop-filter: blur(6px);
   }
-  #connectPanel label {
+  .panel label {
     display: block;
     font-size: 13px;
     color: #aab2d5;
     margin-bottom: 6px;
     text-align: left;
   }
-  #connectPanel input {
+  .panel input {
     width: 100%;
     padding: 10px 12px;
     border-radius: 8px;
@@ -54,7 +54,7 @@
     font-size: 15px;
     margin-bottom: 14px;
   }
-  #connectPanel button, #playAgainBtn {
+  .panel button {
     width: 100%;
     padding: 12px;
     border: none;
@@ -66,8 +66,26 @@
     letter-spacing: 1px;
     cursor: pointer;
     box-shadow: 0 0 18px rgba(79,195,247,0.5);
+    margin-bottom: 12px;
   }
-  #connectPanel button:active, #playAgainBtn:active { transform: scale(0.98); }
+  .panel button.secondary {
+    background: linear-gradient(135deg, #3dff5a, #1ec988);
+    box-shadow: 0 0 18px rgba(61,255,90,0.4);
+  }
+  .panel button.diff-easy { background: linear-gradient(135deg, #7fffb0, #3dd97a); box-shadow:none; }
+  .panel button.diff-medium { background: linear-gradient(135deg, #ffe62d, #ffb300); box-shadow:none; color:#241a00;}
+  .panel button.diff-hard { background: linear-gradient(135deg, #ff6a6a, #ff2d3d); box-shadow:none; }
+  .panel button:active { transform: scale(0.98); }
+  .panel .back {
+    background: none;
+    box-shadow: none;
+    color: #8891b8;
+    font-size: 13px;
+    font-weight: normal;
+    text-decoration: underline;
+    padding: 4px;
+    margin-top: 4px;
+  }
   #status {
     margin-top: 12px;
     font-size: 13px;
@@ -84,65 +102,82 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    width: min(94vw, 820px);
-    margin-bottom: 8px;
-    font-size: 14px;
+    width: min(92vw, 480px);
+    margin-bottom: 6px;
+    font-size: 13px;
     color: #9aa4d0;
   }
+  #hud a { color: #7a84ad; cursor: pointer; text-decoration: underline; }
   #score {
-    font-size: clamp(28px, 6vw, 44px);
+    font-size: clamp(24px, 6vw, 36px);
     font-weight: bold;
     text-shadow: 0 0 10px #fff;
     letter-spacing: 4px;
   }
   canvas {
-    background: #08101f;
-    border-radius: 10px;
-    border: 3px solid #cfd4ea;
+    background: #000;
+    border-radius: 6px;
     max-width: 94vw;
-    max-height: 70vh;
+    max-height: 82vh;
     touch-action: none;
-    box-shadow: 0 0 40px rgba(79,195,247,0.15);
   }
   #overlayMsg {
     position: absolute;
     color: #fff;
-    font-size: 20px;
+    font-size: 18px;
     text-shadow: 0 0 10px #000;
     pointer-events: none;
+    text-align: center;
+    width: 100%;
   }
   #canvasHolder { position: relative; display: flex; justify-content: center; }
-  .hint { font-size: 12px; color: #7a84ad; margin-top: 10px; text-align: center; }
+  .hint { font-size: 12px; color: #7a84ad; margin-top: 8px; text-align: center; }
 </style>
 </head>
 <body>
 <div id="app">
   <h1>GLOW HOCKEY</h1>
 
-  <div id="connectPanel">
+  <div id="mainMenu" class="panel">
+    <button id="btnOnline">🌐 Jogar Online</button>
+    <button id="btnAI" class="secondary">🤖 Jogar contra o Pelicano fantasma</button>
+    <div class="hint">Online precisa de um servidor rodando. Contra o computador funciona direto, sem servidor.</div>
+  </div>
+
+  <div id="connectPanel" class="panel" style="display:none;">
     <label for="serverUrl">Endereço do servidor (WebSocket)</label>
     <input id="serverUrl" type="text" placeholder="ws://192.168.0.10:8765/ws" value="" />
     <button id="connectBtn">Entrar na partida</button>
+    <button class="back" id="backFromOnline">← Voltar</button>
     <div id="status"></div>
-    <div class="hint">Peça o endereço para quem está rodando o server.py</div>
+  </div>
+
+  <div id="difficultyPanel" class="panel" style="display:none;">
+    <label>Escolha a dificuldade da IA</label>
+    <button class="diff-easy" data-diff="facil">Fácil</button>
+    <button class="diff-medium" data-diff="medio">Médio</button>
+    <button class="diff-hard" data-diff="dificil">Difícil</button>
+    <button class="back" id="backFromAI">← Voltar</button>
   </div>
 
   <div id="gameWrap">
     <div id="hud">
       <span id="youAre"></span>
       <span id="score">0 - 0</span>
-      <span id="pingInfo"></span>
+      <a id="menuLink">Menu</a>
     </div>
     <div id="canvasHolder">
-      <canvas id="canvas" width="800" height="500"></canvas>
+      <canvas id="canvas" width="480" height="900"></canvas>
       <div id="overlayMsg"></div>
     </div>
-    <div class="hint">Arraste o dedo (ou mova o mouse) para controlar seu rebatedor</div>
+    <div class="hint">Arraste o dedo (ou mova o mouse) — seu rebatedor aparece um pouco acima do dedo, pra você sempre ver a bola</div>
   </div>
 </div>
 
 <script>
+const mainMenu = document.getElementById('mainMenu');
 const connectPanel = document.getElementById('connectPanel');
+const difficultyPanel = document.getElementById('difficultyPanel');
 const gameWrap = document.getElementById('gameWrap');
 const statusEl = document.getElementById('status');
 const canvas = document.getElementById('canvas');
@@ -153,29 +188,53 @@ const overlayMsg = document.getElementById('overlayMsg');
 
 let ws = null;
 let playerId = null;
-let WIDTH = 800, HEIGHT = 500;
-const PADDLE_RADIUS = 25;
-const PUCK_RADIUS = 15;
-const GOAL_HALF = 80;
+let mode = null; // 'online' ou 'ai'
+let aiDifficulty = 'medio';
 
-let gameState = { paddles: {}, puck: [400,250], score: {"1":0,"2":0} };
-let myX = 100, myY = 250;
+const WIDTH = 480, HEIGHT = 900;
+const PADDLE_RADIUS = 34;
+const PUCK_RADIUS = 26;
+const GOAL_HALF = 95;
+const FRICTION = 0.997;
+const MAX_SPEED = 22;
+const TOUCH_OFFSET = 90;
+
+let gameState = { paddles: {}, puck: [WIDTH/2, HEIGHT/2], score: {"1":0,"2":0} };
+let myX = WIDTH/2, myY = HEIGHT - 120;
 let connected = false;
+let sparkles = [];
 
-// Preenche automaticamente com o endereço do próprio servidor que serviu esta página
-// (funciona tanto local quanto em produção, com wss:// automático em HTTPS).
-(function autofillServerUrl() {
+// ---------- Navegação entre telas ----------
+function showOnly(el) {
+  [mainMenu, connectPanel, difficultyPanel, gameWrap].forEach(p => {
+    p.style.display = (p === el) ? (el === gameWrap ? 'flex' : 'block') : 'none';
+  });
+}
+
+document.getElementById('btnOnline').addEventListener('click', () => {
+  showOnly(connectPanel);
   const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
   const guessed = `${proto}//${window.location.host}/ws`;
-  const input = document.getElementById('serverUrl');
   if (window.location.protocol.startsWith('http')) {
-    input.value = guessed;
+    document.getElementById('serverUrl').value = guessed;
   }
-})();
+});
+document.getElementById('btnAI').addEventListener('click', () => showOnly(difficultyPanel));
+document.getElementById('backFromOnline').addEventListener('click', () => showOnly(mainMenu));
+document.getElementById('backFromAI').addEventListener('click', () => showOnly(mainMenu));
+document.getElementById('menuLink').addEventListener('click', () => window.location.reload());
 
-document.getElementById('connectBtn').addEventListener('click', connect);
+document.querySelectorAll('#difficultyPanel button[data-diff]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    aiDifficulty = btn.dataset.diff;
+    startAIGame();
+  });
+});
 
-function connect() {
+document.getElementById('connectBtn').addEventListener('click', connectOnline);
+
+// ---------- Modo ONLINE ----------
+function connectOnline() {
   const url = document.getElementById('serverUrl').value.trim();
   if (!url) return;
   statusEl.textContent = 'Conectando...';
@@ -197,15 +256,13 @@ function connect() {
     }
     if (msg.type === 'welcome') {
       playerId = msg.player;
-      WIDTH = msg.width;
-      HEIGHT = msg.height;
+      mode = 'online';
       canvas.width = WIDTH;
       canvas.height = HEIGHT;
-      myX = playerId === 1 ? 100 : WIDTH - 100;
-      myY = HEIGHT / 2;
+      myX = WIDTH / 2;
+      myY = playerId === 1 ? HEIGHT - 120 : 120;
       connected = true;
-      connectPanel.style.display = 'none';
-      gameWrap.style.display = 'flex';
+      showOnly(gameWrap);
       youAreEl.textContent = `Você: Jogador ${playerId}`;
       requestAnimationFrame(loop);
     }
@@ -220,7 +277,6 @@ function connect() {
   ws.onclose = () => {
     if (connected) {
       overlayMsg.textContent = 'Conexão encerrada.';
-      overlayMsg.style.left = (canvas.offsetWidth/2 - 80) + 'px';
       overlayMsg.style.top = (canvas.offsetHeight/2) + 'px';
     } else {
       statusEl.textContent = 'Não foi possível conectar ao servidor.';
@@ -229,12 +285,163 @@ function connect() {
   };
 }
 
-function clampPos(x, y) {
-  y = Math.max(PADDLE_RADIUS, Math.min(HEIGHT - PADDLE_RADIUS, y));
+function sendMove() {
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({ type: 'move', x: myX, y: myY }));
+  }
+}
+
+// ---------- Modo CONTRA O COMPUTADOR (física local, sem servidor) ----------
+const local = {
+  paddles: { 1: [WIDTH/2, HEIGHT-120], 2: [WIDTH/2, 120] },
+  prevPaddles: { 1: [WIDTH/2, HEIGHT-120], 2: [WIDTH/2, 120] },
+  puck: [WIDTH/2, HEIGHT/2],
+  puckVel: [0, 0],
+  score: { 1: 0, 2: 0 },
+  resetTimer: 0,
+};
+
+function localResetPuck(direction) {
+  local.puck = [WIDTH/2, HEIGHT/2];
+  const speed = 5.0;
+  const angle = Math.PI/180 * 25;
+  const signX = Math.random() < 0.5 ? 1 : -1;
+  local.puckVel = [speed * Math.sin(angle) * signX, speed * Math.cos(angle) * direction];
+}
+
+function startAIGame() {
+  playerId = 1;
+  mode = 'ai';
+  canvas.width = WIDTH;
+  canvas.height = HEIGHT;
+  myX = WIDTH/2; myY = HEIGHT - 120;
+  local.paddles = { 1: [WIDTH/2, HEIGHT-120], 2: [WIDTH/2, 120] };
+  local.prevPaddles = { 1: [WIDTH/2, HEIGHT-120], 2: [WIDTH/2, 120] };
+  local.score = { 1: 0, 2: 0 };
+  localResetPuck(1);
+  connected = true;
+  showOnly(gameWrap);
+  const diffLabel = { facil: 'Fácil', medio: 'Médio', dificil: 'Difícil' }[aiDifficulty];
+  youAreEl.textContent = `Você vs IA (${diffLabel})`;
+  requestAnimationFrame(loop);
+}
+
+function updateAI(dt) {
+  const speedMap = { facil: 150, medio: 250, dificil: 380 };
+  const step = speedMap[aiDifficulty] * dt;
+
+  const puck = local.puck;
+  let targetX = puck[0];
+  if (aiDifficulty === 'facil') {
+    targetX += Math.sin(Date.now() / 250) * 35; // deixa a IA menos precisa
+  }
+  targetX = Math.max(PADDLE_RADIUS, Math.min(WIDTH - PADDLE_RADIUS, targetX));
+
+  const restY = 150;
+  const puckThreatening = puck[1] < HEIGHT * 0.62;
+  let targetY = puckThreatening ? Math.min(puck[1] - PADDLE_RADIUS * 0.4, HEIGHT/2 - PADDLE_RADIUS) : restY;
+  targetY = Math.max(PADDLE_RADIUS, Math.min(HEIGHT/2 - PADDLE_RADIUS, targetY));
+
+  let [ax, ay] = local.paddles[2];
+  const dx = targetX - ax, dy = targetY - ay;
+  const dist = Math.hypot(dx, dy);
+  if (dist > 0.01) {
+    const move = Math.min(step, dist);
+    ax += (dx / dist) * move;
+    ay += (dy / dist) * move;
+  }
+  local.prevPaddles[2] = [local.paddles[2][0], local.paddles[2][1]];
+  local.paddles[2] = [ax, ay];
+}
+
+function localStep(dt) {
+  if (local.resetTimer > 0) {
+    local.resetTimer -= dt;
+    return;
+  }
+
+  local.puck[0] += local.puckVel[0];
+  local.puck[1] += local.puckVel[1];
+  local.puckVel[0] *= FRICTION;
+  local.puckVel[1] *= FRICTION;
+
+  if (local.puck[0] - PUCK_RADIUS < 0) {
+    local.puck[0] = PUCK_RADIUS;
+    local.puckVel[0] *= -1;
+  } else if (local.puck[0] + PUCK_RADIUS > WIDTH) {
+    local.puck[0] = WIDTH - PUCK_RADIUS;
+    local.puckVel[0] *= -1;
+  }
+
+  let scored = null;
+  if (local.puck[1] - PUCK_RADIUS < 0) {
+    if (Math.abs(local.puck[0] - WIDTH/2) < GOAL_HALF) {
+      scored = 1;
+    } else {
+      local.puck[1] = PUCK_RADIUS;
+      local.puckVel[1] *= -1;
+    }
+  } else if (local.puck[1] + PUCK_RADIUS > HEIGHT) {
+    if (Math.abs(local.puck[0] - WIDTH/2) < GOAL_HALF) {
+      scored = 2;
+    } else {
+      local.puck[1] = HEIGHT - PUCK_RADIUS;
+      local.puckVel[1] *= -1;
+    }
+  }
+
+  if (scored) {
+    local.score[scored] += 1;
+    localResetPuck(scored === 1 ? 1 : -1);
+    local.resetTimer = 1.0;
+  }
+
+  for (const pid of [1, 2]) {
+    const ppos = local.paddles[pid];
+    const dx = local.puck[0] - ppos[0];
+    const dy = local.puck[1] - ppos[1];
+    const dist = Math.hypot(dx, dy);
+    const minDist = PUCK_RADIUS + PADDLE_RADIUS;
+    if (dist > 0 && dist < minDist) {
+      const nx = dx / dist, ny = dy / dist;
+      const overlap = minDist - dist;
+      local.puck[0] += nx * overlap;
+      local.puck[1] += ny * overlap;
+
+      const pvx = ppos[0] - local.prevPaddles[pid][0];
+      const pvy = ppos[1] - local.prevPaddles[pid][1];
+      const speedIn = Math.abs(local.puckVel[0]*nx + local.puckVel[1]*ny);
+
+      local.puckVel[0] += nx*speedIn*1.4 + pvx*1.3;
+      local.puckVel[1] += ny*speedIn*1.4 + pvy*1.3;
+
+      const speed = Math.hypot(local.puckVel[0], local.puckVel[1]);
+      if (speed > MAX_SPEED) {
+        const scale = MAX_SPEED / speed;
+        local.puckVel[0] *= scale;
+        local.puckVel[1] *= scale;
+      } else if (speed < 2 && local.resetTimer <= 0) {
+        local.puckVel[0] += nx*2;
+        local.puckVel[1] += ny*2;
+      }
+    }
+  }
+}
+
+// ---------- Entrada (mouse/toque) — igual para os dois modos ----------
+function clampPos(rawX, rawY) {
+  let x = rawX;
+  let y = rawY;
   if (playerId === 1) {
-    x = Math.max(PADDLE_RADIUS, Math.min(WIDTH/2 - PADDLE_RADIUS, x));
+    y -= TOUCH_OFFSET;
   } else {
-    x = Math.max(WIDTH/2 + PADDLE_RADIUS, Math.min(WIDTH - PADDLE_RADIUS, x));
+    y += TOUCH_OFFSET;
+  }
+  x = Math.max(PADDLE_RADIUS, Math.min(WIDTH - PADDLE_RADIUS, x));
+  if (playerId === 1) {
+    y = Math.max(HEIGHT/2 + PADDLE_RADIUS, Math.min(HEIGHT - PADDLE_RADIUS, y));
+  } else {
+    y = Math.max(PADDLE_RADIUS, Math.min(HEIGHT/2 - PADDLE_RADIUS, y));
   }
   return [x, y];
 }
@@ -251,7 +458,6 @@ canvas.addEventListener('mousemove', (e) => {
   const [x, y] = canvasCoordsFromEvent(e.clientX, e.clientY);
   [myX, myY] = clampPos(x, y);
 });
-
 canvas.addEventListener('touchmove', (e) => {
   if (!connected) return;
   e.preventDefault();
@@ -259,7 +465,6 @@ canvas.addEventListener('touchmove', (e) => {
   const [x, y] = canvasCoordsFromEvent(touch.clientX, touch.clientY);
   [myX, myY] = clampPos(x, y);
 }, { passive: false });
-
 canvas.addEventListener('touchstart', (e) => {
   if (!connected) return;
   e.preventDefault();
@@ -268,16 +473,32 @@ canvas.addEventListener('touchstart', (e) => {
   [myX, myY] = clampPos(x, y);
 }, { passive: false });
 
-function sendMove() {
-  if (ws && ws.readyState === WebSocket.OPEN) {
-    ws.send(JSON.stringify({ type: 'move', x: myX, y: myY }));
-  }
-}
-
-function glowCircle(x, y, radius, color) {
+// ---------- Desenho ----------
+function glowRing(x, y, radius, color) {
   ctx.save();
   ctx.shadowColor = color;
-  ctx.shadowBlur = radius * 1.8;
+  ctx.shadowBlur = radius * 1.4;
+  ctx.lineWidth = radius * 0.55;
+  ctx.strokeStyle = color;
+  ctx.beginPath();
+  ctx.arc(x, y, radius * 0.62, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.restore();
+
+  ctx.lineWidth = Math.max(2, radius * 0.06);
+  ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+  ctx.beginPath();
+  ctx.arc(x, y, radius * 0.62 + radius * 0.275, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(x, y, radius * 0.62 - radius * 0.275, 0, Math.PI * 2);
+  ctx.stroke();
+}
+
+function glowBall(x, y, radius, color) {
+  ctx.save();
+  ctx.shadowColor = color;
+  ctx.shadowBlur = radius * 2.2;
   ctx.beginPath();
   ctx.arc(x, y, radius, 0, Math.PI * 2);
   ctx.fillStyle = color;
@@ -285,66 +506,129 @@ function glowCircle(x, y, radius, color) {
   ctx.restore();
 
   ctx.beginPath();
-  ctx.arc(x - radius*0.25, y - radius*0.25, radius*0.32, 0, Math.PI*2);
-  ctx.fillStyle = 'rgba(255,255,255,0.55)';
+  ctx.arc(x - radius*0.28, y - radius*0.28, radius*0.34, 0, Math.PI*2);
+  ctx.fillStyle = 'rgba(255,255,255,0.65)';
   ctx.fill();
 }
 
-function drawTable() {
-  ctx.fillStyle = '#08101f';
-  ctx.fillRect(0, 0, WIDTH, HEIGHT);
-
-  ctx.strokeStyle = '#3b4468';
-  ctx.lineWidth = 3;
-  ctx.beginPath();
-  ctx.moveTo(WIDTH/2, 0);
-  ctx.lineTo(WIDTH/2, HEIGHT);
-  ctx.stroke();
-
-  ctx.beginPath();
-  ctx.arc(WIDTH/2, HEIGHT/2, 70, 0, Math.PI*2);
-  ctx.stroke();
-
-  ctx.strokeStyle = '#cfd4ea';
-  ctx.lineWidth = 6;
-  ctx.strokeRect(3, 3, WIDTH-6, HEIGHT-6);
-
-  ctx.strokeStyle = '#ffd200';
-  ctx.lineWidth = 6;
-  ctx.beginPath();
-  ctx.moveTo(0, HEIGHT/2 - GOAL_HALF);
-  ctx.lineTo(0, HEIGHT/2 + GOAL_HALF);
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.moveTo(WIDTH, HEIGHT/2 - GOAL_HALF);
-  ctx.lineTo(WIDTH, HEIGHT/2 + GOAL_HALF);
-  ctx.stroke();
+function drawSparkles() {
+  sparkles.forEach(s => {
+    ctx.save();
+    ctx.globalAlpha = s.life;
+    ctx.fillStyle = s.color;
+    ctx.shadowColor = s.color;
+    ctx.shadowBlur = 6;
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, s.r, 0, Math.PI*2);
+    ctx.fill();
+    ctx.restore();
+  });
+  sparkles = sparkles.filter(s => s.life > 0);
+  sparkles.forEach(s => { s.life -= 0.03; });
 }
 
+function spawnSparkle(x, y) {
+  if (Math.random() < 0.6) {
+    sparkles.push({
+      x: x + (Math.random()-0.5)*30,
+      y: y + (Math.random()-0.5)*30,
+      r: 1.5 + Math.random()*2,
+      life: 1,
+      color: Math.random() < 0.5 ? '#7fffb0' : '#8fd8ff'
+    });
+  }
+}
+
+function drawTable() {
+  ctx.fillStyle = '#000000';
+  ctx.fillRect(0, 0, WIDTH, HEIGHT);
+
+  const cx = WIDTH/2, cy = HEIGHT/2;
+
+  ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(0, cy);
+  ctx.lineTo(WIDTH, cy);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(cx, cy, WIDTH*0.28, 0, Math.PI*2);
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.arc(cx, 10, GOAL_HALF*1.15, Math.PI*0.15, Math.PI*0.85);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(cx, HEIGHT-10, GOAL_HALF*1.15, Math.PI*1.15, Math.PI*1.85);
+  ctx.stroke();
+
+  const glow = (color) => { ctx.shadowColor = color; ctx.shadowBlur = 14; ctx.strokeStyle = color; };
+  ctx.lineWidth = 8;
+  ctx.lineCap = 'round';
+
+  const leftGoalX = cx - GOAL_HALF, rightGoalX = cx + GOAL_HALF;
+
+  glow('#ff2d3d');
+  ctx.beginPath(); ctx.moveTo(4, 4); ctx.lineTo(4, cy); ctx.stroke();
+  glow('#2d6bff');
+  ctx.beginPath(); ctx.moveTo(4, cy); ctx.lineTo(4, HEIGHT-4); ctx.stroke();
+
+  glow('#ffe62d');
+  ctx.beginPath(); ctx.moveTo(WIDTH-4, 4); ctx.lineTo(WIDTH-4, cy); ctx.stroke();
+  glow('#3dff5a');
+  ctx.beginPath(); ctx.moveTo(WIDTH-4, cy); ctx.lineTo(WIDTH-4, HEIGHT-4); ctx.stroke();
+
+  glow('#ff2d3d');
+  ctx.beginPath(); ctx.moveTo(4, 4); ctx.lineTo(leftGoalX, 4); ctx.stroke();
+  glow('#ffe62d');
+  ctx.beginPath(); ctx.moveTo(rightGoalX, 4); ctx.lineTo(WIDTH-4, 4); ctx.stroke();
+
+  glow('#2d6bff');
+  ctx.beginPath(); ctx.moveTo(4, HEIGHT-4); ctx.lineTo(leftGoalX, HEIGHT-4); ctx.stroke();
+  glow('#3dff5a');
+  ctx.beginPath(); ctx.moveTo(rightGoalX, HEIGHT-4); ctx.lineTo(WIDTH-4, HEIGHT-4); ctx.stroke();
+
+  ctx.shadowBlur = 0;
+}
+
+// ---------- Loop principal ----------
 function loop() {
   if (!connected) return;
-  sendMove();
+
+  if (mode === 'online') {
+    sendMove();
+  } else if (mode === 'ai') {
+    local.prevPaddles[1] = [local.paddles[1][0], local.paddles[1][1]];
+    local.paddles[1] = [myX, myY];
+    updateAI(1/60);
+    localStep(1/60);
+    gameState.paddles = { '1': local.paddles[1], '2': local.paddles[2] };
+    gameState.puck = local.puck;
+    gameState.score = local.score;
+  }
 
   drawTable();
 
-  const myColor = playerId === 1 ? '#4fc3f7' : '#ff6482';
-  const oppColor = playerId === 1 ? '#ff6482' : '#4fc3f7';
+  const myColor = playerId === 1 ? '#ff3b5c' : '#ffe62d';
+  const oppColor = playerId === 1 ? '#ffe62d' : '#ff3b5c';
   const oppId = playerId === 1 ? 2 : 1;
   const oppPos = gameState.paddles[String(oppId)];
 
   if (oppPos) {
-    glowCircle(oppPos[0], oppPos[1], PADDLE_RADIUS, oppColor);
-  } else {
+    glowRing(oppPos[0], oppPos[1], PADDLE_RADIUS, oppColor);
+  } else if (mode === 'online') {
     ctx.fillStyle = 'rgba(200,200,220,0.85)';
-    ctx.font = 'bold 22px Segoe UI';
+    ctx.font = 'bold 20px Segoe UI';
     ctx.textAlign = 'center';
-    ctx.fillText('Aguardando oponente...', WIDTH/2, HEIGHT/2 + 100);
+    ctx.fillText('Aguardando oponente...', WIDTH/2, HEIGHT/2 - 40);
   }
 
-  glowCircle(myX, myY, PADDLE_RADIUS, myColor);
-
   const puck = gameState.puck || [WIDTH/2, HEIGHT/2];
-  glowCircle(puck[0], puck[1], PUCK_RADIUS, '#ffffff');
+  spawnSparkle(puck[0], puck[1]);
+  drawSparkles();
+  glowBall(puck[0], puck[1], PUCK_RADIUS, '#39ff6a');
+
+  glowRing(myX, myY, PADDLE_RADIUS, myColor);
 
   const s1 = gameState.score['1'] ?? 0;
   const s2 = gameState.score['2'] ?? 0;
